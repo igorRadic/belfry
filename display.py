@@ -13,7 +13,7 @@ def display(message_queue: Queue):
 
     It displays messages from message queue."""
 
-    init(0x27, 1) # 27 is I2C address of display, 1 is backlight ON
+    init(0x27, 1)  # 27 is I2C address of display, 1 is backlight ON
 
     while True:
         if message_queue.empty():
@@ -22,4 +22,3 @@ def display(message_queue: Queue):
             recieved_message = message_queue.get()
         print(recieved_message)
         write(0, 0, recieved_message)
-
