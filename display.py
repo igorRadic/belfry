@@ -22,5 +22,4 @@ def display(message_queue: Queue):
             recieved_message = message_queue.get()
         print(recieved_message)
         write(0, 0, recieved_message)
-        write(0, 1, 'string')
 
