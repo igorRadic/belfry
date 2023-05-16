@@ -14,10 +14,10 @@ from time import perf_counter
 import datetime
 import multiprocessing
 
-# use Raspberry Pi 4B board pin numbers
+# Use Raspberry Pi 4B board pin numbers.
 GPIO.setmode(GPIO.BCM)
 
-# Set GPIO pins for watch handles
+# Set GPIO pins for watch handles.
 MINUTE_HANDLE = 23
 HOUR_HANDLE = 24
 
@@ -26,7 +26,7 @@ for pin in [MINUTE_HANDLE, HOUR_HANDLE]:
     GPIO.setup(pin, GPIO.OUT)
 
 # Declare how long to move each handle
-# and when to start moving handles
+# and when to start moving handles.
 MINUTE_HANDLE_DELAY = 3.1  # [s]
 HOUR_HANDLE_DELAY = 3.1  # [s]
 
@@ -60,30 +60,136 @@ def move_hour_handle():
     print("-=- stop moving: Hour handle  -=-")
 
 
+def log_last_watch_time(date_time: datetime.datetime):
+    """
+    Log retrieved time to text file.
+    """
+    with open('log.txt', 'w') as txt_file:
+        txt_file.write(f"{date_time.strftime('%H:%M:%S')}") 
+
+
+def get_last_watch_time():
+    """
+    Get last watch time from text file.
+    """
+    with open('log.txt', 'r') as txt_file:
+        last_watch_time = datetime.datetime.strptime(txt_file.readline(), '%H:%M:%S').time().replace(second=0)
+    return last_watch_time
+
+
+def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
+    """
+    This function is called when there is difference between current and
+    watch time, this function calls moving hour and minute handles as many 
+    times as the watch is late (in minutes).
+    """
+    iterations = 0
+
+    # If difference is more than 12 hours, substract 12 hours. 
+    if minutes > 720: # 12 * 60 minutes = 720 minutes
+        iterations = minutes - 720
+    else:
+        iterations = minutes
+
+    for iteration in range(iterations):
+        print(f"      # {iteration + 1}. watch setup iteration.")
+        
+        # Move minute handle.
+        minute_handle_process = multiprocessing.Process(target=move_minute_handle)
+        minute_handle_process.start()
+        minute_handle_process.join()
+
+        # Move hour handle.
+        hour_handle_process = multiprocessing.Process(target=move_hour_handle)
+        hour_handle_process.start()
+        hour_handle_process.join()
+
+    print(get_last_watch_time())
+    current_datetime = datetime.datetime.now()
+    last_watch_time = datetime.datetime.combine(current_datetime.date(), get_last_watch_time())
+    new_watch_time = last_watch_time + datetime.timedelta(minutes=minutes) 
+    log_last_watch_time(date_time=new_watch_time)
+    print("   ** Watch setup is done. **")
+    watch_setup_queue.put("Watch setup is done!")
+
+
+def wait_until_next_second(counter_from_which_is_waiting: float):
+    """
+    Wait one second from retrieved counter state.
+    """
+    execution_time = perf_counter() - counter_from_which_is_waiting
+    if execution_time < ONE_SECOND:
+        while perf_counter() < counter_from_which_is_waiting + ONE_SECOND:
+            pass
+
+
 def watch(message_queue: multiprocessing.Queue):
     """This function is main watch function.
 
     It sends tick to other processes every second and
     it starts moving handles when it is time for it.
-    """
+    """ 
+    # Flag which indicates that watch is current in setup mode.
+    watch_is_setting = False
+    # Queue for communication with watch setup process.
+    watch_setup_queue = multiprocessing.Queue()
+
     while True:
-        # Get current date and time
+        # Get current perf counter state, date and time.
         loop_start_time = perf_counter()
         current_datetime = datetime.datetime.now()
-        message_queue.put(f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}")
 
-        # Check if is it time for minute handle moving, if it is, move minute handle
+        # Send tick to other processes.
+        message_queue.put(f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}")
+          
+        if watch_is_setting:
+            if watch_setup_queue.empty():
+                # Wait and go to next loop iteration if watch is in setup mode.
+                wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+                continue
+            else:
+                recieved_message = watch_setup_queue.get()
+                if recieved_message == "Watch setup is done!":
+                    # Continue with normal work, go further in this loop.
+                    watch_is_setting = False
+            
+        # Get last watch time.
+        last_watch_time = get_last_watch_time()
+
+        # Convert it to datetime so that current datetime and last watch time can be compared.
+        last_watch_time = datetime.datetime.combine(current_datetime.date(), last_watch_time)
+
+        # Calculate the time difference.
+        if current_datetime < last_watch_time:
+            # If current_datetime is earlier in the day, assume that last_watch_time is from yesterday.
+            last_watch_time = datetime.datetime.combine(current_datetime.date() - datetime.timedelta(days=1), last_watch_time)
+        time_delta = current_datetime - last_watch_time
+
+        # Convert time difference to minutes.
+        time_delta = int(time_delta.total_seconds() / 60)
+
+        # If there is time delta go to watch setup mode,
+        # ignore time delta if watch handles are moving right now in normal mode.
+        if time_delta > 0 and current_datetime.second > HOUR_HANDLE_START + HOUR_HANDLE_DELAY:
+            print(f"Current watch time is: {last_watch_time.strftime('%H:%M:%S')}")
+            print(f"Current time is: {current_datetime.strftime('%H:%M:%S')}")
+            print(f"Difference between curret time and watch time is {time_delta} minutes!")
+            print("   ** Turning to watch setup mode. **")
+            watch_is_setting = True
+            multiprocessing.Process(target=watch_setup, args=(time_delta, watch_setup_queue)).start()
+            wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+            continue
+
+        # Check if is it time for minute handle moving, if it is, move minute handle.
         if int(current_datetime.strftime("%S")) == MINUTE_HANDLE_START:
             seconds_handle_process = multiprocessing.Process(target=move_minute_handle)
             seconds_handle_process.start()
 
-        # Check if is it time for hour handle moving, if it is, move hour handle
+        # Check if is it time for hour handle moving, if it is, move hour handle.
         if int(current_datetime.strftime("%S")) == HOUR_HANDLE_START:
             hour_handle_process = multiprocessing.Process(target=move_hour_handle)
             hour_handle_process.start()
+            log_last_watch_time(date_time=current_datetime.replace(second=0))
 
-        # Wait until next second
-        execution_time = perf_counter() - loop_start_time
-        if execution_time < ONE_SECOND:
-            while perf_counter() < loop_start_time + ONE_SECOND:
-                pass
+        wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+      
