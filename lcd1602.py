@@ -107,5 +107,5 @@ def write(x, y, str):
 
 if __name__ == "__main__":
     init(0x27, 1)  # 27 is I2C address of display, 1 is backlight ON
-    write(0, 0, "Hvaljen Isus i")
-    write(0, 1, "Marija!")
+    write(0, 0, "Test...")
+    write(0, 1, "Test!")

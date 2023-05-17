@@ -181,7 +181,9 @@ def wait_until_next_second(counter_from_which_is_waiting: float):
             pass
 
 
-def watch(message_queue: multiprocessing.Queue):
+def watch(
+    current_datetime_queue: multiprocessing.Queue, message_queue: multiprocessing.Queue
+):
     """This function is main watch function.
 
     It sends tick to other processes every second and
@@ -198,7 +200,7 @@ def watch(message_queue: multiprocessing.Queue):
         current_datetime = datetime.datetime.now()
 
         # Send tick to other processes.
-        message_queue.put(f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}")
+        current_datetime_queue.put(f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}")
 
         if watch_is_setting:
             if watch_setup_queue.empty():
@@ -210,6 +212,7 @@ def watch(message_queue: multiprocessing.Queue):
                 if recieved_message == "Watch setup is done!":
                     # Continue with normal work, go further in this loop.
                     watch_is_setting = False
+                    message_queue.put("Watch setup is done!")
 
         # Get last watch time.
         last_watch_time = get_last_watch_time()
@@ -246,6 +249,7 @@ def watch(message_queue: multiprocessing.Queue):
             multiprocessing.Process(
                 target=watch_setup, args=(time_delta, watch_setup_queue)
             ).start()
+            message_queue.put("Watch setup started!")
             wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
             continue
 

@@ -5,20 +5,32 @@ watch setup.
 """
 
 from multiprocessing import Queue
-from lcd1602 import init, write
+from lcd1602 import write, clear
 
 
-def display(message_queue: Queue):
+def display(current_datetime_queue: Queue, message_queue: Queue):
     """This is main display function
 
     It displays messages from message queue."""
 
-    init(0x27, 1)  # 27 is I2C address of display, 1 is backlight ON
+    show_datetime = True
 
     while True:
-        if message_queue.empty():
-            continue
-        else:
+        if not message_queue.empty():
             recieved_message = message_queue.get()
-        print(recieved_message)
-        write(0, 0, recieved_message)
+            if recieved_message == "Watch setup started!":
+                write(0, 0, "Pricekajte, sat")
+                write(0, 1, "se namjesta!")
+                show_datetime = False
+            elif recieved_message == "Watch setup is done!":
+                show_datetime = True
+                clear()
+
+        elif not current_datetime_queue.empty():
+            current_date_and_time = current_datetime_queue.get()
+            print(current_date_and_time)
+            if show_datetime:
+                write(0, 0, current_date_and_time[0:8])
+                write(0, 1, current_date_and_time[9:17])
+        else:
+            continue
