@@ -100,6 +100,7 @@ bell_programs = [
     # Other
     {
         "name": "Sprovod 12:30",
+        "function_button": 0,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 12,  # start hour
         "minute": 30,  # start minute
@@ -108,6 +109,7 @@ bell_programs = [
     },
     {
         "name": "Sprovod 12:55",
+        "function_button": 0,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 12,  # start hour
         "minute": 55,  # start minute
@@ -116,6 +118,7 @@ bell_programs = [
     },
     {
         "name": "Sprovod 14:30",
+        "function_button": 1,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 14,  # start hour
         "minute": 30,  # start minute
@@ -124,6 +127,7 @@ bell_programs = [
     },
     {
         "name": "Sprovod 14:55",
+        "function_button": 1,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 14,  # start hour
         "minute": 55,  # start minute
@@ -158,10 +162,12 @@ def ring(program: dict):
     print(f"Stop ringing: {program['name']}.")
 
 
-def bells(current_datetime_queue: Queue):
+def bells(current_datetime_queue: Queue, states_queue: Queue):
     """This is main bell function.
 
     It calls bell ringing."""
+
+    function_buttons_state = [False, False]
 
     while True:
         if not current_datetime_queue.empty():
@@ -174,12 +180,23 @@ def bells(current_datetime_queue: Queue):
 
             # Go through all programs and check if it is time for ringing.
             for bell_program in bell_programs:
-                if current_datetime.weekday() in bell_program["day"]:
+                if not bell_program["day"]:
+                    if function_buttons_state[bell_program["function_button"]]:
+                        if current_datetime.hour == bell_program["hour"]:
+                            if current_datetime.minute == bell_program["minute"]:
+                                if current_datetime.second == 0:
+                                    multiprocessing.Process(
+                                        target=ring, args=(bell_program,)
+                                    ).start()
+                elif current_datetime.weekday() in bell_program["day"]:
                     if current_datetime.hour == bell_program["hour"]:
                         if current_datetime.minute == bell_program["minute"]:
                             if current_datetime.second == 0:
                                 multiprocessing.Process(
                                     target=ring, args=(bell_program,)
                                 ).start()
+        if not states_queue.empty():
+            function_buttons_state = states_queue.get()
+            print(function_buttons_state)
         else:
             continue

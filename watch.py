@@ -184,6 +184,7 @@ def wait_until_next_second(counter_from_which_is_waiting: float):
 def watch(
     current_datetime_display: multiprocessing.Queue,
     current_datetime_bells: multiprocessing.Queue,
+    current_datetime_buttons: multiprocessing.Queue,
     message_queue: multiprocessing.Queue,
 ):
     """This function is main watch function.
@@ -202,10 +203,10 @@ def watch(
         current_datetime = datetime.datetime.now()
 
         # Send tick to other processes.
-        current_datetime_display.put(
-            f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}"
-        )
-        current_datetime_bells.put(f"{current_datetime.strftime('%d/%m/%y %H:%M:%S')}")
+        current_datetime_message = current_datetime.strftime("%d/%m/%y %H:%M:%S")
+        current_datetime_display.put(current_datetime_message)
+        current_datetime_bells.put(current_datetime_message)
+        current_datetime_buttons.put(current_datetime_message)
 
         if watch_is_setting:
             if watch_setup_queue.empty():
