@@ -2,6 +2,7 @@
 This is module for I2C communication with 16x2 Display, copied from:
 https://toptechboy.com/library-for-i2c-connection-of-the-lcd1602-to-the-raspberry-pi/
 """
+
 import time
 import smbus2 as smbus
 
