@@ -36,6 +36,22 @@ HOUR_HANDLE_START = 2  # [s]
 ONE_SECOND = 1
 
 
+def log_minute_handle_move():
+    """
+    Log that minute handle has moved.
+    """
+    with open("handles_movement_log.txt", "w") as txt_file:
+        txt_file.write("minute_handle")
+
+
+def log_hour_handle_move():
+    """
+    Log that hour handle has moved.
+    """
+    with open("handles_movement_log.txt", "w") as txt_file:
+        txt_file.write("hour_handle")
+
+
 def move_minute_handle():
     """
     This function sets GPIO pin to HIGH which turns on electric motor.
@@ -46,6 +62,7 @@ def move_minute_handle():
     delay(seconds=MINUTE_HANDLE_DELAY)
     GPIO.output(MINUTE_HANDLE, GPIO.LOW)
     print("-=--=- stop moving: Minute handle  -=--=-")
+    log_minute_handle_move()
 
 
 def move_hour_handle():
@@ -58,13 +75,14 @@ def move_hour_handle():
     delay(HOUR_HANDLE_DELAY)
     GPIO.output(HOUR_HANDLE, GPIO.LOW)
     print("-=- stop moving: Hour handle  -=-")
+    log_hour_handle_move()
 
 
 def log_last_watch_time(date_time: datetime.datetime):
     """
-    Log retrieved time to text file.
+    Log recieved time to text file.
     """
-    with open("log.txt", "w") as txt_file:
+    with open("watch_time.txt", "w") as txt_file:
         txt_file.write(f"{date_time.strftime('%H:%M:%S')}")
 
 
@@ -72,13 +90,36 @@ def get_last_watch_time():
     """
     Get last watch time from text file.
     """
-    with open("log.txt", "r") as txt_file:
+    with open("watch_time.txt", "r") as txt_file:
         last_watch_time = (
             datetime.datetime.strptime(txt_file.readline(), "%H:%M:%S")
             .time()
             .replace(second=0)
         )
     return last_watch_time
+
+
+def handles_synchronized():
+    """
+    This function checks the last movement of handles and returns True
+    if handles are synchronized and False if not.
+
+    Handle synchronization is required if the minute handle
+    last moved and there was some problem that caused the program to stop,
+    in this case the hour handle did not move and now must move
+    so the handles stay synchronized.
+    """
+    try:
+        with open("handles_movement_log.txt", "r") as txt_file:
+            last_movement = txt_file.readline()
+        if last_movement == "hour_handle":
+            return True
+        elif last_movement == "minute_handle":
+            return False
+        else:
+            return True
+    except FileNotFoundError:
+        return True
 
 
 def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
@@ -88,6 +129,18 @@ def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
     times as the watch is late (in minutes).
     """
     iterations = 0
+
+    # First check if handles moved identically in last handle movement.
+    if not handles_synchronized():
+        # If they not, move hour handle to synchronize them.
+        print("Hour handle has not moved last time!")
+        print(f"      # 0. watch setup iteration (only hour handle moves).")
+        move_hour_handle()
+        minutes = minutes - 1
+        if minutes == 0:
+            print("   ** Watch setup is done. **")
+            watch_setup_queue.put("Watch setup is done!")
+            return
 
     # If difference is more than 12 hours, substract 12 hours.
     if minutes > 720:  # 12 * 60 minutes = 720 minutes
@@ -108,7 +161,6 @@ def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
         hour_handle_process.start()
         hour_handle_process.join()
 
-    print(get_last_watch_time())
     current_datetime = datetime.datetime.now()
     last_watch_time = datetime.datetime.combine(
         current_datetime.date(), get_last_watch_time()
