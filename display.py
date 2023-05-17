@@ -9,7 +9,7 @@ from lcd1602 import write, clear
 
 
 def display(current_datetime_queue: Queue, message_queue: Queue):
-    """This is main display function
+    """This is main display function.
 
     It displays messages from message queue."""
 

@@ -30,6 +30,7 @@ WATCH_SETUP_LOCK = 12
 """
 
 from watch import watch
+from bells import bells
 from display import display
 from lcd1602 import init, write, clear
 import multiprocessing
@@ -54,20 +55,24 @@ def main():
     show_initial_message()
 
     # Queue for sending current time every second from watch to display and bells module.
-    current_datetime_queue = multiprocessing.Queue()
+    current_datetime_display = multiprocessing.Queue()
+    current_datetime_bells = multiprocessing.Queue()
 
     # Queue for communication between processes.
     message_queue = multiprocessing.Queue()
 
     # Starting watch process.
     multiprocessing.Process(
-        target=watch, args=(current_datetime_queue, message_queue)
+        target=watch,
+        args=(current_datetime_display, current_datetime_bells, message_queue),
     ).start()
 
     # Starting display process.
     multiprocessing.Process(
-        target=display, args=(current_datetime_queue, message_queue)
+        target=display, args=(current_datetime_display, message_queue)
     ).start()
+
+    multiprocessing.Process(target=bells, args=(current_datetime_bells,)).start()
 
 
 if __name__ == "__main__":
