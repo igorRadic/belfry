@@ -122,7 +122,11 @@ def handles_synchronized():
         return True
 
 
-def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
+def watch_setup(
+    minutes: int,
+    last_watch_datetime: datetime.datetime,
+    watch_setup_queue: multiprocessing.Queue,
+):
     """
     This function is called when there is difference between current and
     watch time, this function calls moving hour and minute handles as many
@@ -136,6 +140,10 @@ def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
         print("Hour handle has not moved last time!")
         print(f"      # 0. watch setup iteration (only hour handle moves).")
         move_hour_handle()
+        log_last_watch_time(
+            date_time=last_watch_datetime.replace(second=0)
+            + datetime.timedelta(minutes=1)
+        )
         minutes = minutes - 1
         if minutes == 0:
             print("   ** Watch setup is done. **")
@@ -147,6 +155,8 @@ def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
         iterations = minutes - 720
     else:
         iterations = minutes
+
+    print(f"--- Required {iterations} iterations. ---")
 
     for iteration in range(iterations):
         print(f"      # {iteration + 1}. watch setup iteration.")
@@ -161,12 +171,11 @@ def watch_setup(minutes: int, watch_setup_queue: multiprocessing.Queue):
         hour_handle_process.start()
         hour_handle_process.join()
 
-    current_datetime = datetime.datetime.now()
-    last_watch_time = datetime.datetime.combine(
-        current_datetime.date(), get_last_watch_time()
-    )
-    new_watch_time = last_watch_time + datetime.timedelta(minutes=minutes)
-    log_last_watch_time(date_time=new_watch_time)
+        log_last_watch_time(
+            date_time=last_watch_datetime.replace(second=0)
+            + datetime.timedelta(minutes=iteration + 1)
+        )
+
     print("   ** Watch setup is done. **")
     watch_setup_queue.put("Watch setup is done!")
 
@@ -232,7 +241,8 @@ def watch(
         if current_datetime < last_watch_time:
             # If current_datetime is earlier in the day, assume that last_watch_time is from yesterday.
             last_watch_time = datetime.datetime.combine(
-                current_datetime.date() - datetime.timedelta(days=1), last_watch_time
+                current_datetime.date() - datetime.timedelta(days=1),
+                last_watch_time.time(),
             )
         time_delta = current_datetime - last_watch_time
 
@@ -253,7 +263,8 @@ def watch(
             print("   ** Turning to watch setup mode. **")
             watch_is_setting = True
             multiprocessing.Process(
-                target=watch_setup, args=(time_delta, watch_setup_queue)
+                target=watch_setup,
+                args=(time_delta, last_watch_time, watch_setup_queue),
             ).start()
             message_queue.put("Watch setup started!")
             wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
