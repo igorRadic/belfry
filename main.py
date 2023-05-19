@@ -76,7 +76,7 @@ def main():
 
     # Start bells process.
     multiprocessing.Process(
-        target=bells, args=(current_datetime_bells, states_queue)
+        target=bells, args=(current_datetime_bells, states_queue, message_queue)
     ).start()
 
     # Starting watch process.

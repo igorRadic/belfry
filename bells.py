@@ -21,10 +21,29 @@ BELL_D = 26
 Bell A is the largest, bell D is the smallest
 """
 
+
+def convert_pin_to_bell_name(pin: int):
+    if pin == BELL_A:
+        return "A"
+    elif pin == BELL_B:
+        return "B"
+    elif pin == BELL_C:
+        return "C"
+    elif pin == BELL_D:
+        return "D"
+
+
+def parse_bell_program_for_display(bell_program: dict):
+    message = bell_program["name"] + " " * (16 - len(bell_program["name"])) + " "
+    for bell in bell_program["bells"]:
+        message = message + convert_pin_to_bell_name(bell)
+    return message
+
+
 bell_programs = [
     # Every day
     {
-        "name": "Svaki dan: 12h",
+        "name": "Podne",
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 12,  # start hour
         "minute": 00,  # start minute
@@ -32,7 +51,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Svaki dan: 20h",
+        "name": "20:00h",
         "bells": [BELL_A, BELL_D],
         "hour": 20,  # start hour
         "minute": 00,  # start minute
@@ -41,7 +60,7 @@ bell_programs = [
     },
     # Work day
     {
-        "name": "Radni dan: 15 do večernje mise",
+        "name": "15 do mise",
         "bells": [BELL_C],
         "hour": 18,  # start hour
         "minute": 15,  # start minute
@@ -50,7 +69,7 @@ bell_programs = [
     },
     # Sunday
     {
-        "name": "Nedjelja: 15 do jutarnje mise",
+        "name": "15 do mise",
         "bells": [BELL_C],
         "hour": 6,  # start hour
         "minute": 45,  # start minute
@@ -58,7 +77,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Nedjelja: 5 do jutarnje mise",
+        "name": "5 do mise",
         "bells": [BELL_B, BELL_C],
         "hour": 6,  # start hour
         "minute": 55,  # start minute
@@ -66,7 +85,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Nedjelja: 15 do župne mise",
+        "name": "15 do mise",
         "bells": [BELL_C],
         "hour": 9,  # start hour
         "minute": 45,  # start minute
@@ -74,7 +93,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Nedjelja: 5 do župne mise",
+        "name": "5 do mise",
         "bells": [BELL_B, BELL_C],
         "hour": 9,  # start hour
         "minute": 55,  # start minute
@@ -82,7 +101,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Nedjelja: 15 do večernje mise",
+        "name": "15 do mise",
         "bells": [BELL_C],
         "hour": 18,  # start hour
         "minute": 15,  # start minute
@@ -90,7 +109,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Nedjelja: 5 do večernje mise",
+        "name": "5 do mise",
         "bells": [BELL_B, BELL_C],
         "hour": 18,  # start hour
         "minute": 25,  # start minute
@@ -99,7 +118,7 @@ bell_programs = [
     },
     # Other
     {
-        "name": "Sprovod 12:30",
+        "name": "30 do sprovoda",
         "function_button": 0,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 12,  # start hour
@@ -108,7 +127,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Sprovod 12:55",
+        "name": "5 do sprovoda",
         "function_button": 0,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 12,  # start hour
@@ -117,7 +136,7 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Sprovod 14:30",
+        "name": "30 do sprovoda",
         "function_button": 1,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 14,  # start hour
@@ -126,13 +145,21 @@ bell_programs = [
         "duration": 120,  # [s]
     },
     {
-        "name": "Sprovod 14:55",
+        "name": "5 do sprovoda",
         "function_button": 1,
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 14,  # start hour
         "minute": 55,  # start minute
         "day": [],  # Only when activated
         "duration": 120,  # [s]
+    },
+    {
+        "name": "15 do mise",
+        "bells": [BELL_A, BELL_C, BELL_D],
+        "hour": 22,  # start hour
+        "minute": 25,  # start minute
+        "day": [2],  # Only when activated
+        "duration": 20,  # [s]
     },
 ]
 
@@ -142,12 +169,14 @@ for out in output_pins:
     GPIO.setup(out, GPIO.OUT)
 
 
-def ring(program: dict):
+def ring(program: dict, message_queue: Queue):
     """
     This function handles ringing as described in program
     passed to it.
     """
     print(f"Start ringing: {program['name']}.")
+    message_queue.put(f"Ringing {parse_bell_program_for_display(program)}")
+    print(f"Ringing {parse_bell_program_for_display(program)}")
 
     # Start ringing.
     for bell in program["bells"]:
@@ -160,9 +189,10 @@ def ring(program: dict):
         GPIO.output(bell, GPIO.LOW)
 
     print(f"Stop ringing: {program['name']}.")
+    message_queue.put(f"Stop ringing")
 
 
-def bells(current_datetime_queue: Queue, states_queue: Queue):
+def bells(current_datetime_queue: Queue, states_queue: Queue, message_queue):
     """This is main bell function.
 
     It calls bell ringing."""
@@ -186,14 +216,14 @@ def bells(current_datetime_queue: Queue, states_queue: Queue):
                             if current_datetime.minute == bell_program["minute"]:
                                 if current_datetime.second == 0:
                                     multiprocessing.Process(
-                                        target=ring, args=(bell_program,)
+                                        target=ring, args=(bell_program, message_queue)
                                     ).start()
                 elif current_datetime.weekday() in bell_program["day"]:
                     if current_datetime.hour == bell_program["hour"]:
                         if current_datetime.minute == bell_program["minute"]:
                             if current_datetime.second == 0:
                                 multiprocessing.Process(
-                                    target=ring, args=(bell_program,)
+                                    target=ring, args=(bell_program, message_queue)
                                 ).start()
         if not states_queue.empty():
             function_buttons_state = states_queue.get()
