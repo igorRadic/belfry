@@ -5,17 +5,22 @@ this module manipulates the GPIO pins which then
 manipulate relays that turn on and off
 electric motors on which are handles.
 There are two GPIO pins, each for one handle, 
-according to that there arealse  two electric motors.
+according to that there are two electric motors.
 """
 
-import RPi.GPIO as GPIO
-from utils import delay
-from time import perf_counter
 import datetime
 import multiprocessing
+from time import perf_counter
+
+import RPi.GPIO as GPIO
+
+from utils import delay
 
 # Use Raspberry Pi 4B board pin numbers.
 GPIO.setmode(GPIO.BCM)
+
+# Ignore GPIO warnings.
+GPIO.setwarnings(False)
 
 # Set GPIO pins for watch handles.
 MINUTE_HANDLE = 23
@@ -36,7 +41,7 @@ HOUR_HANDLE_START = 2  # [s]
 ONE_SECOND = 1
 
 
-def log_minute_handle_move():
+def log_minute_handle_move() -> None:
     """
     Log that minute handle has moved.
     """
@@ -44,7 +49,7 @@ def log_minute_handle_move():
         txt_file.write("minute_handle")
 
 
-def log_hour_handle_move():
+def log_hour_handle_move() -> None:
     """
     Log that hour handle has moved.
     """
@@ -52,7 +57,7 @@ def log_hour_handle_move():
         txt_file.write("hour_handle")
 
 
-def move_minute_handle():
+def move_minute_handle() -> None:
     """
     This function sets GPIO pin to HIGH which turns on electric motor.
     Minute handle moves as long as the GPIO pin is in HIGH state.
@@ -65,7 +70,7 @@ def move_minute_handle():
     log_minute_handle_move()
 
 
-def move_hour_handle():
+def move_hour_handle() -> None:
     """
     This function sets GPIO pin to HIGH which turns on electric motor.
     Hour handle moves as long as the GPIO pin is in HIGH state.
@@ -78,7 +83,7 @@ def move_hour_handle():
     log_hour_handle_move()
 
 
-def log_last_watch_time(date_time: datetime.datetime):
+def log_last_watch_time(date_time: datetime.datetime) -> None:
     """
     Log recieved time to text file.
     """
@@ -86,7 +91,7 @@ def log_last_watch_time(date_time: datetime.datetime):
         txt_file.write(f"{date_time.strftime('%H:%M:%S')}")
 
 
-def get_last_watch_time():
+def get_last_watch_time() -> datetime.datetime:
     """
     Get last watch time from text file.
     """
@@ -99,14 +104,15 @@ def get_last_watch_time():
     return last_watch_time
 
 
-def handles_synchronized():
+def handles_synchronized() -> bool:
     """
     This function checks the last movement of handles and returns True
     if handles are synchronized and False if not.
 
-    Handle synchronization is required if the minute handle
-    last moved and there was some problem that caused the program to stop,
-    in this case the hour handle did not move and now must move
+    Handle are not synchronized if some problem occurred that caused
+    the program to stop after moving the minute handle and
+    before moving hour handle.
+    In this case the hour handle did not move and now must move
     so the handles stay synchronized.
     """
     try:
@@ -126,7 +132,7 @@ def watch_setup(
     minutes: int,
     last_watch_datetime: datetime.datetime,
     watch_setup_queue: multiprocessing.Queue,
-):
+) -> None:
     """
     This function is called when there is difference between current and
     watch time, this function calls moving hour and minute handles as many
@@ -171,6 +177,7 @@ def watch_setup(
         hour_handle_process.start()
         hour_handle_process.join()
 
+        # Log new watch time.
         log_last_watch_time(
             date_time=last_watch_datetime.replace(second=0)
             + datetime.timedelta(minutes=iteration + 1)
@@ -180,13 +187,13 @@ def watch_setup(
     watch_setup_queue.put("Watch setup is done!")
 
 
-def wait_until_next_second(counter_from_which_is_waiting: float):
+def wait_until_next_second(counter_from_which_it_is_waiting: float) -> None:
     """
-    Wait one second from retrieved counter state.
+    Wait one second from retrieved perf counter state.
     """
-    execution_time = perf_counter() - counter_from_which_is_waiting
+    execution_time = perf_counter() - counter_from_which_it_is_waiting
     if execution_time < ONE_SECOND:
-        while perf_counter() < counter_from_which_is_waiting + ONE_SECOND:
+        while perf_counter() < counter_from_which_it_is_waiting + ONE_SECOND:
             pass
 
 
@@ -195,11 +202,13 @@ def watch(
     current_datetime_bells: multiprocessing.Queue,
     current_datetime_buttons: multiprocessing.Queue,
     message_queue: multiprocessing.Queue,
-):
+) -> None:
     """This function is main watch function.
 
     It sends tick to other processes every second and
     it starts moving handles when it is time for it.
+    Also it checks if watch time is correct, if not
+    calls watch setup.
     """
     # Flag which indicates that watch is current in setup mode.
     watch_is_setting = False
@@ -220,7 +229,7 @@ def watch(
         if watch_is_setting:
             if watch_setup_queue.empty():
                 # Wait and go to next loop iteration if watch is in setup mode.
-                wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+                wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)
                 continue
             else:
                 recieved_message = watch_setup_queue.get()
@@ -267,7 +276,7 @@ def watch(
                 args=(time_delta, last_watch_time, watch_setup_queue),
             ).start()
             message_queue.put("Watch setup started!")
-            wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+            wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)
             continue
 
         # Check if is it time for minute handle moving, if it is, move minute handle.
@@ -281,4 +290,4 @@ def watch(
             hour_handle_process.start()
             log_last_watch_time(date_time=current_datetime.replace(second=0))
 
-        wait_until_next_second(counter_from_which_is_waiting=loop_start_time)
+        wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)

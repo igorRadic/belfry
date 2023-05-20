@@ -4,12 +4,13 @@ https://toptechboy.com/library-for-i2c-connection-of-the-lcd1602-to-the-raspberr
 """
 
 import time
+
 import smbus2 as smbus
 
 BUS = smbus.SMBus(1)
 
 
-def write_word(addr, data):
+def write_word(addr, data) -> None:
     global BLEN
     temp = data
     if BLEN == 1:
@@ -19,7 +20,7 @@ def write_word(addr, data):
     BUS.write_byte(addr, temp)
 
 
-def send_command(comm):
+def send_command(comm) -> None:
     # Send bit7-4 firstly
     buf = comm & 0xF0
     buf |= 0x04  # RS = 0, RW = 0, EN = 1
@@ -37,7 +38,7 @@ def send_command(comm):
     write_word(LCD_ADDR, buf)
 
 
-def send_data(data):
+def send_data(data) -> None:
     # Send bit7-4 firstly
     buf = data & 0xF0
     buf |= 0x05  # RS = 1, RW = 0, EN = 1
@@ -55,7 +56,7 @@ def send_data(data):
     write_word(LCD_ADDR, buf)
 
 
-def init(addr, bl):
+def init(addr, bl) -> bool:
     #    global BUS
     #    BUS = smbus.SMBus(1)
     global LCD_ADDR
@@ -79,16 +80,16 @@ def init(addr, bl):
         return True
 
 
-def clear():
+def clear() -> None:
     send_command(0x01)  # Clear Screen
 
 
-def openlight():  # Enable the backlight
+def openlight() -> None:  # Enable the backlight
     BUS.write_byte(0x27, 0x08)
     BUS.close()
 
 
-def write(x, y, str):
+def write(x, y, str) -> None:
     if x < 0:
         x = 0
     if x > 15:

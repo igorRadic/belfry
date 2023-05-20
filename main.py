@@ -29,19 +29,20 @@ HOUR_HANDLE = 24
 WATCH_SETUP_LOCK = 12
 """
 
-from watch import watch
+import multiprocessing
+import time
+
 from bells import bells
 from display import display
 from function_buttons import function_buttons
-from lcd1602 import init, write, clear
-import multiprocessing
-import time
+from lcd1602 import clear, init, write
+from watch import watch
 
 # Display init.
 init(0x27, 1)  # 27 is I2C address of display, 1 is backlight ON
 
 
-def show_initial_message():
+def show_initial_message() -> None:
     """
     This function shows initial message on startup.
     """
@@ -51,18 +52,22 @@ def show_initial_message():
     clear()
 
 
-def main():
+def main() -> None:
     # First show initial message.
     show_initial_message()
 
-    # Queue for sending current time every second from watch to display and bells module.
-    current_datetime_display = multiprocessing.Queue()
-    current_datetime_bells = multiprocessing.Queue()
-    current_datetime_buttons = multiprocessing.Queue()
+    # Queues for communication between processes.
+    message_queue = multiprocessing.Queue()
     states_queue = multiprocessing.Queue()
 
-    # Queue for communication between processes.
-    message_queue = multiprocessing.Queue()
+    # Queue for sending current datetime to display module.
+    current_datetime_display = multiprocessing.Queue()
+
+    # Queue for sending current datetime to bells module.
+    current_datetime_bells = multiprocessing.Queue()
+
+    # Queue for sending current datetime to buttons module.
+    current_datetime_buttons = multiprocessing.Queue()
 
     # Starting display process.
     multiprocessing.Process(

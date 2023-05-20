@@ -1,10 +1,28 @@
-import time
-import RPi.GPIO as GPIO
-from multiprocessing import Queue
-import datetime
+"""This module handles funciton buttons and their
+equivalent program states.
 
-# use Raspberry Pi 4B board pin numbers
+It sends program states to other processes on every program
+states change.
+
+In this case there are two physical function buttons and
+they control program states. Each program state can be used
+for activating and deactivating bell program. If state is in 
+logical True state equivalent bell program is activated and if 
+it is in logical False state bell program is deactivated.
+"""
+
+import datetime
+import multiprocessing
+import time
+from typing import Tuple
+
+import RPi.GPIO as GPIO
+
+# Use Raspberry Pi 4B board pin numbers.
 GPIO.setmode(GPIO.BCM)
+
+# Ignore GPIO warnings.
+GPIO.setwarnings(False)
 
 # Set GPIO pins
 # UP_BUTTON = 17
@@ -12,16 +30,18 @@ GPIO.setmode(GPIO.BCM)
 # DOWN_BUTTON = 22
 # LEFT_BUTTON = 5
 
-S1_BUTTON = 16
-S3_BUTTON = 20
+# Set GPIO pins for function buttons.
+F0_BUTTON = 16
+F1_BUTTON = 20
 
-S1_LED = 18
-S3_LED = 21
+# Set GPIO pins for function buttons leds.
+F0_LED = 18
+F1_LED = 21
 
-buttons = [S1_BUTTON, S3_BUTTON]
-leds = [S1_LED, S3_LED]
+buttons = [F0_BUTTON, F1_BUTTON]
+leds = [F0_LED, F1_LED]
 
-# set up GPIO pin modes
+# Set up GPIO pin modes.
 for pin in buttons:
     GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -44,7 +64,7 @@ def is_pressed(previous_pressed: bool, button: int) -> bool:
 
 def log_function_buttons_states(
     function_buttons_states: list[bool], current_datetime: datetime.datetime
-):
+) -> None:
     """
     Log function buttons states change in text file.
     """
@@ -63,7 +83,7 @@ def log_function_buttons_states(
                 )
 
 
-def get_function_buttons_states():
+def get_function_buttons_states() -> Tuple(list, list):
     """
     Get last function buttons states from text file.
     """
@@ -85,22 +105,25 @@ def get_function_buttons_states():
     return states, states_datetime
 
 
-def function_buttons(states_queue: Queue, current_datetime_queue: Queue):
-    """This is main function for buttons.
+def function_buttons(
+    states_queue: multiprocessing.Queue, current_datetime_queue: multiprocessing.Queue
+) -> None:
+    """This is main function for function buttons.
 
     It checks button states and change program states if needed.
-    On program states change, it sends new program states to other functions.
+    On program states change, it sends new program states to other processes.
+
+    Logging program states is used to persist states even if program restarts.
     """
     # Declare initial states.
     buttons_state = [False, False]
     program_states = [False, False]
 
-    # Set funciton elapse datetime.
+    # Set states elapse datetime.
     states_datetime = [
         datetime.datetime.now().replace(hour=13, minute=0, second=0),
         datetime.datetime.now().replace(hour=15, minute=0, second=0),
     ]
-
     for i in range(len(states_datetime)):
         if datetime.datetime.now() > states_datetime[i]:
             states_datetime[i] = states_datetime[i] + datetime.timedelta(days=1)
@@ -134,12 +157,13 @@ def function_buttons(states_queue: Queue, current_datetime_queue: Queue):
 
         if not current_datetime_queue.empty():
             recieved_message = current_datetime_queue.get()
-
             # Convert str to datetime.
             current_datetime = datetime.datetime.strptime(
                 recieved_message, "%d/%m/%y %H:%M:%S"
             )
 
+            # If state is elapsed set state to False.
+            # State 0 elapses when it is 13:00h.
             if (
                 program_states[0]
                 and current_datetime.hour == 13
@@ -154,6 +178,7 @@ def function_buttons(states_queue: Queue, current_datetime_queue: Queue):
                     current_datetime=datetime.datetime.now(),
                     function_buttons_states=program_states,
                 )
+            # State 1 elapses when it is 15:00h.
             elif (
                 program_states[1]
                 and current_datetime.hour == 15
