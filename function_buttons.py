@@ -24,12 +24,6 @@ GPIO.setmode(GPIO.BCM)
 # Ignore GPIO warnings.
 GPIO.setwarnings(False)
 
-# Set GPIO pins
-# UP_BUTTON = 17
-# RIGHT_BUTTON = 27
-# DOWN_BUTTON = 22
-# LEFT_BUTTON = 5
-
 # Set GPIO pins for function buttons.
 F0_BUTTON = 16
 F1_BUTTON = 20
@@ -83,7 +77,7 @@ def log_function_buttons_states(
                 )
 
 
-def get_function_buttons_states() -> Tuple(list, list):
+def get_function_buttons_states():
     """
     Get last function buttons states from text file.
     """
@@ -106,7 +100,9 @@ def get_function_buttons_states() -> Tuple(list, list):
 
 
 def function_buttons(
-    states_queue: multiprocessing.Queue, current_datetime_queue: multiprocessing.Queue
+    states_queue_for_bells: multiprocessing.Queue,
+    current_datetime_queue_in: multiprocessing.Queue,
+    message_queue_in: multiprocessing.Queue,
 ) -> None:
     """This is main function for function buttons.
 
@@ -118,6 +114,8 @@ def function_buttons(
     # Declare initial states.
     buttons_state = [False, False]
     program_states = [False, False]
+
+    manual_watch_setup = False
 
     # Set states elapse datetime.
     states_datetime = [
@@ -139,64 +137,72 @@ def function_buttons(
             program_states[i] = logged_states[i]
 
     while True:
-        # Get current buttons states.
-        for i, button, state in zip(range(len(buttons)), buttons, buttons_state):
-            buttons_state[i] = is_pressed(button=button, previous_pressed=state)
-            if buttons_state[i]:
-                # Change current program state.
-                program_states[i] = not program_states[i]
-                # Send new program states to other processes.
-                states_queue.put(program_states)
-                log_function_buttons_states(
-                    current_datetime=datetime.datetime.now(),
-                    function_buttons_states=program_states,
+        if not message_queue_in.empty():
+            recieved_message = message_queue_in.get()
+            if recieved_message == "Manual watch setup started.":
+                manual_watch_setup = True
+            elif recieved_message == "Manual watch setup done.":
+                manual_watch_setup = False
+
+        if not manual_watch_setup:
+            # Get current buttons states.
+            for i, button, state in zip(range(len(buttons)), buttons, buttons_state):
+                buttons_state[i] = is_pressed(button=button, previous_pressed=state)
+                if buttons_state[i]:
+                    # Change current program state.
+                    program_states[i] = not program_states[i]
+                    # Send new program states to other processes.
+                    states_queue_for_bells.put(program_states)
+                    log_function_buttons_states(
+                        current_datetime=datetime.datetime.now(),
+                        function_buttons_states=program_states,
+                    )
+
+            # Debounce delay.
+            time.sleep(0.1)
+
+            if not current_datetime_queue_in.empty():
+                recieved_message = current_datetime_queue_in.get()
+                # Convert str to datetime.
+                current_datetime = datetime.datetime.strptime(
+                    recieved_message, "%d/%m/%y %H:%M:%S"
                 )
 
-        # Debounce delay.
-        time.sleep(0.1)
+                # If state is elapsed set state to False.
+                # State 0 elapses when it is 13:00h.
+                if (
+                    program_states[0]
+                    and current_datetime.hour == 13
+                    and current_datetime.minute == 0
+                    and current_datetime.second == 0
+                ):
+                    # Change current program state.
+                    program_states[0] = False
+                    # Send new program states to other processes.
+                    states_queue_for_bells.put(program_states)
+                    log_function_buttons_states(
+                        current_datetime=datetime.datetime.now(),
+                        function_buttons_states=program_states,
+                    )
+                # State 1 elapses when it is 15:00h.
+                elif (
+                    program_states[1]
+                    and current_datetime.hour == 15
+                    and current_datetime.minute == 0
+                    and current_datetime.second == 0
+                ):
+                    # Change current program state.
+                    program_states[1] = False
+                    # Send new program states to other processes.
+                    states_queue_for_bells.put(program_states)
+                    log_function_buttons_states(
+                        current_datetime=datetime.datetime.now(),
+                        function_buttons_states=program_states,
+                    )
 
-        if not current_datetime_queue.empty():
-            recieved_message = current_datetime_queue.get()
-            # Convert str to datetime.
-            current_datetime = datetime.datetime.strptime(
-                recieved_message, "%d/%m/%y %H:%M:%S"
-            )
-
-            # If state is elapsed set state to False.
-            # State 0 elapses when it is 13:00h.
-            if (
-                program_states[0]
-                and current_datetime.hour == 13
-                and current_datetime.minute == 0
-                and current_datetime.second == 0
-            ):
-                # Change current program state.
-                program_states[0] = False
-                # Send new program states to other processes.
-                states_queue.put(program_states)
-                log_function_buttons_states(
-                    current_datetime=datetime.datetime.now(),
-                    function_buttons_states=program_states,
-                )
-            # State 1 elapses when it is 15:00h.
-            elif (
-                program_states[1]
-                and current_datetime.hour == 15
-                and current_datetime.minute == 0
-                and current_datetime.second == 0
-            ):
-                # Change current program state.
-                program_states[1] = False
-                # Send new program states to other processes.
-                states_queue.put(program_states)
-                log_function_buttons_states(
-                    current_datetime=datetime.datetime.now(),
-                    function_buttons_states=program_states,
-                )
-
-        # Set LEDs states based on program states.
-        for led, state in zip(leds, program_states):
-            if state:
-                GPIO.output(led, GPIO.HIGH)
-            else:
-                GPIO.output(led, GPIO.LOW)
+            # Set LEDs states based on program states.
+            for led, state in zip(leds, program_states):
+                if state:
+                    GPIO.output(led, GPIO.HIGH)
+                else:
+                    GPIO.output(led, GPIO.LOW)

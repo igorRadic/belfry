@@ -198,10 +198,12 @@ def wait_until_next_second(counter_from_which_it_is_waiting: float) -> None:
 
 
 def watch(
-    current_datetime_display: multiprocessing.Queue,
-    current_datetime_bells: multiprocessing.Queue,
-    current_datetime_buttons: multiprocessing.Queue,
-    message_queue: multiprocessing.Queue,
+    current_datetime_for_display: multiprocessing.Queue,
+    current_datetime_for_bells: multiprocessing.Queue,
+    current_datetime_for_buttons: multiprocessing.Queue,
+    message_queue_for_display: multiprocessing.Queue,
+    message_queue_in: multiprocessing.Queue,
+    message_queue_for_manual_watch_setup: multiprocessing.Queue,
 ) -> None:
     """This function is main watch function.
 
@@ -222,9 +224,16 @@ def watch(
 
         # Send tick to other processes.
         current_datetime_message = current_datetime.strftime("%d/%m/%y %H:%M:%S")
-        current_datetime_display.put(current_datetime_message)
-        current_datetime_bells.put(current_datetime_message)
-        current_datetime_buttons.put(current_datetime_message)
+        current_datetime_for_display.put(current_datetime_message)
+        current_datetime_for_bells.put(current_datetime_message)
+        current_datetime_for_buttons.put(current_datetime_message)
+
+        if not message_queue_in.empty():
+            recieved_message = message_queue_in.get()
+            if recieved_message == "Manual watch setup started.":
+                watch_is_setting = True
+            elif recieved_message == "Manual watch setup done.":
+                watch_is_setting = False
 
         if watch_is_setting:
             if watch_setup_queue.empty():
@@ -236,7 +245,8 @@ def watch(
                 if recieved_message == "Watch setup is done!":
                     # Continue with normal work, go further in this loop.
                     watch_is_setting = False
-                    message_queue.put("Watch setup is done!")
+                    message_queue_for_display.put("Watch setup is done!")
+                    message_queue_for_manual_watch_setup.put("Watch setup is done!")
 
         # Get last watch time.
         last_watch_time = get_last_watch_time()
@@ -275,7 +285,8 @@ def watch(
                 target=watch_setup,
                 args=(time_delta, last_watch_time, watch_setup_queue),
             ).start()
-            message_queue.put("Watch setup started!")
+            message_queue_for_display.put("Watch setup started!")
+            message_queue_for_manual_watch_setup.put("Watch setup started!")
             wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)
             continue
 

@@ -210,19 +210,19 @@ def ring(program: dict, message_queue: multiprocessing.Queue) -> None:
 
 
 def bells(
-    current_datetime_queue: multiprocessing.Queue,
-    states_queue: multiprocessing.Queue,
-    message_queue,
+    current_datetime_queue_in: multiprocessing.Queue,
+    states_queue_in: multiprocessing.Queue,
+    message_queue_for_display: multiprocessing.Queue,
 ) -> None:
     """This is main bell function.
 
-    It calls bell ringing."""
-
+    It calls bell ringing.
+    """
     function_buttons_states = [False, False]
 
     while True:
-        if not current_datetime_queue.empty():
-            recieved_message = current_datetime_queue.get()
+        if not current_datetime_queue_in.empty():
+            recieved_message = current_datetime_queue_in.get()
 
             # Convert str to datetime.
             current_datetime = datetime.datetime.strptime(
@@ -237,18 +237,20 @@ def bells(
                             if current_datetime.minute == bell_program["minute"]:
                                 if current_datetime.second == 0:
                                     multiprocessing.Process(
-                                        target=ring, args=(bell_program, message_queue)
+                                        target=ring,
+                                        args=(bell_program, message_queue_for_display),
                                     ).start()
                 elif current_datetime.weekday() in bell_program["day"]:
                     if current_datetime.hour == bell_program["hour"]:
                         if current_datetime.minute == bell_program["minute"]:
                             if current_datetime.second == 0:
                                 multiprocessing.Process(
-                                    target=ring, args=(bell_program, message_queue)
+                                    target=ring,
+                                    args=(bell_program, message_queue_for_display),
                                 ).start()
         # Get funciton buttons states on their change.
-        if not states_queue.empty():
-            function_buttons_states = states_queue.get()
+        if not states_queue_in.empty():
+            function_buttons_states = states_queue_in.get()
             print(f"Function button 0 state: {function_buttons_states[0]}.")
             print(f"Function button 1 state: {function_buttons_states[1]}.")
         else:
