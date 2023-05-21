@@ -31,6 +31,8 @@ DOWN_BUTTON = 22
 LEFT_BUTTON = 27
 
 WATCH_SETUP_SWITCH = 12
+
+FREE GPIO PINS: 4, 25 
 """
 
 import multiprocessing
