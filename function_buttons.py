@@ -14,7 +14,6 @@ it is in logical False state bell program is deactivated.
 import datetime
 import multiprocessing
 import time
-from typing import Tuple
 
 import RPi.GPIO as GPIO
 
@@ -62,7 +61,7 @@ def log_function_buttons_states(
     """
     Log function buttons states change in text file.
     """
-    old_states, old_states_datetime = get_function_buttons_states()
+    old_states, old_states_datetime = get_logged_function_buttons_states()
     with open("function_buttons.txt", "w") as txt_file:
         for state, old_state, old_datetime in zip(
             function_buttons_states, old_states, old_states_datetime
@@ -77,7 +76,7 @@ def log_function_buttons_states(
                 )
 
 
-def get_function_buttons_states():
+def get_logged_function_buttons_states():
     """
     Get last function buttons states from text file.
     """
@@ -99,6 +98,35 @@ def get_function_buttons_states():
     return states, states_datetime
 
 
+def get_program_states() -> list:
+    """
+    Get program states based on logged states and they elapse datetime.
+    """
+    # Declare default states.
+    program_states = [False, False]
+
+    # Set states elapse datetime.
+    states_datetime = [
+        datetime.datetime.now().replace(hour=13, minute=0, second=0),
+        datetime.datetime.now().replace(hour=15, minute=0, second=0),
+    ]
+    for i in range(len(states_datetime)):
+        if datetime.datetime.now() > states_datetime[i]:
+            states_datetime[i] = states_datetime[i] + datetime.timedelta(days=1)
+
+    # Check for logged program states.
+    logged_states, logged_states_datetime = get_logged_function_buttons_states()
+
+    # Set current program states to logged program states.
+    for i in range(len(program_states)):
+        # Update program state only if logged state not expired.
+        delta = states_datetime[i] - logged_states_datetime[i]
+        if int(delta.total_seconds() / (60 * 60)) < 24:
+            program_states[i] = logged_states[i]
+
+    return program_states
+
+
 def function_buttons(
     states_queue_for_bells: multiprocessing.Queue,
     current_datetime_queue_in: multiprocessing.Queue,
@@ -113,30 +141,13 @@ def function_buttons(
     """
     # Declare initial states.
     buttons_state = [False, False]
-    program_states = [False, False]
+    program_states = get_program_states()
 
+    # Manual watch setup is not currently performed.
     manual_watch_setup = False
 
-    # Set states elapse datetime.
-    states_datetime = [
-        datetime.datetime.now().replace(hour=13, minute=0, second=0),
-        datetime.datetime.now().replace(hour=15, minute=0, second=0),
-    ]
-    for i in range(len(states_datetime)):
-        if datetime.datetime.now() > states_datetime[i]:
-            states_datetime[i] = states_datetime[i] + datetime.timedelta(days=1)
-
-    # Check for logged program states.
-    logged_states, logged_states_datetime = get_function_buttons_states()
-
-    # Set current program states to logged program states.
-    for i in range(len(program_states)):
-        # Update program state only if logged state not expired.
-        delta = states_datetime[i] - logged_states_datetime[i]
-        if int(delta.total_seconds() / (60 * 60)) < 24:
-            program_states[i] = logged_states[i]
-
     while True:
+        # Check if manual watch setup is performed.
         if not message_queue_in.empty():
             recieved_message = message_queue_in.get()
             if recieved_message == "Manual watch setup started.":

@@ -8,6 +8,7 @@ import multiprocessing
 
 import RPi.GPIO as GPIO
 
+from function_buttons import get_program_states
 from utils import delay
 
 # Use Raspberry Pi 4B board pin numbers.
@@ -152,7 +153,7 @@ bell_programs = [
     },
     {
         "name": "5 do sprovoda",
-        "function_button": 1,  # Function button 0 activates this program
+        "function_button": 1,  # Function button 1 activates this program
         "bells": [BELL_A, BELL_B, BELL_C, BELL_D],
         "hour": 14,  # start hour
         "minute": 55,  # start minute
@@ -192,7 +193,6 @@ def ring(program: dict, message_queue: multiprocessing.Queue) -> None:
     """
     print(f"Start ringing: {program['name']}.")
     message_queue.put(f"Ringing {parse_bell_program_for_display(program)}")
-    print(f"Ringing {parse_bell_program_for_display(program)}")
 
     # Start ringing.
     for bell in program["bells"]:
@@ -218,7 +218,7 @@ def bells(
 
     It calls bell ringing.
     """
-    function_buttons_states = [False, False]
+    program_states = get_program_states()
 
     while True:
         if not current_datetime_queue_in.empty():
@@ -232,7 +232,7 @@ def bells(
             # Go through all programs and check if it is time for ringing.
             for bell_program in bell_programs:
                 if not bell_program["day"]:
-                    if function_buttons_states[bell_program["function_button"]]:
+                    if program_states[bell_program["function_button"]]:
                         if current_datetime.hour == bell_program["hour"]:
                             if current_datetime.minute == bell_program["minute"]:
                                 if current_datetime.second == 0:
@@ -250,8 +250,8 @@ def bells(
                                 ).start()
         # Get funciton buttons states on their change.
         if not states_queue_in.empty():
-            function_buttons_states = states_queue_in.get()
-            print(f"Function button 0 state: {function_buttons_states[0]}.")
-            print(f"Function button 1 state: {function_buttons_states[1]}.")
+            program_states = states_queue_in.get()
+            print(f"Function button 0 state: {program_states[0]}.")
+            print(f"Function button 1 state: {program_states[1]}.")
         else:
             continue

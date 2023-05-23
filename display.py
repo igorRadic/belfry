@@ -36,7 +36,7 @@ def display(
                     clear()
             elif "Ringing" in recieved_message:
                 show_ringing = True
-                if not not manual_watch_setup:
+                if not manual_watch_setup:
                     clear()
                     # In the first line show ringing name.
                     write(0, 0, recieved_message[8:24])
