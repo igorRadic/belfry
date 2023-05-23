@@ -251,7 +251,7 @@ def bells(
         # Get funciton buttons states on their change.
         if not states_queue_in.empty():
             program_states = states_queue_in.get()
-            print(f"Function button 0 state: {program_states[0]}.")
-            print(f"Function button 1 state: {program_states[1]}.")
+            print(f"Program state 0: {program_states[0]}.")
+            print(f"Program state 1: {program_states[1]}.")
         else:
             continue
