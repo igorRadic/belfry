@@ -63,6 +63,15 @@ bell_programs = [
         "name": "15 do mise",
         "function_button": None,
         "bells": [BELL_C],
+        "hour": 6,  # start hour
+        "minute": 45,  # start minute
+        "day": [0, 1, 2, 3, 4, 5],  # Work day
+        "duration": 120,  # [s]
+    },
+    {
+        "name": "15 do mise",
+        "function_button": None,
+        "bells": [BELL_C],
         "hour": 18,  # start hour
         "minute": 15,  # start minute
         "day": [0, 1, 2, 3, 4, 5],  # Work day
