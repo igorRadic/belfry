@@ -96,7 +96,11 @@ def manual_watch_setup(
             if watch_setup:
                 if current_datetime == None:
                     current_datetime = datetime.datetime.now()
+                    # There are some strange characters on display when here is no delay.
+                    time.sleep(0.5)
                     clear()
+                    # Same here.
+                    time.sleep(0.5)
                     write(1, 0, "Na satu: " + current_datetime.strftime("%H:%M"))
                     write(13, 1, "**")
 
