@@ -216,6 +216,8 @@ def watch(
     watch_is_setting = False
     # Queue for communication with watch setup process.
     watch_setup_queue = multiprocessing.Queue()
+    # Flag which indicates that app is on startup.
+    app_on_startup = True
 
     while True:
         # Get current perf counter state, date and time.
@@ -245,6 +247,7 @@ def watch(
                 if recieved_message == "Watch setup is done!":
                     # Continue with normal work, go further in this loop.
                     watch_is_setting = False
+                    app_on_startup = False
                     message_queue_for_display.put("Watch setup is done!")
                     message_queue_for_manual_watch_setup.put("Watch setup is done!")
 
@@ -267,13 +270,24 @@ def watch(
 
         # Convert time difference to minutes.
         time_delta = int(time_delta.total_seconds() / 60)
+        
+        if app_on_startup and time_delta > 0:
+            watch_is_setting = True
+            multiprocessing.Process(
+                target=watch_setup,
+                args=(time_delta, last_watch_time, watch_setup_queue),
+            ).start()
+            message_queue_for_display.put("Watch setup started!")
+            message_queue_for_manual_watch_setup.put("Watch setup started!")
+            wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)
+            continue
 
         # If there is time delta go to watch setup mode,
         # ignore time delta if watch handles are moving right now in normal mode.
         if (
             time_delta > 0
-            and current_datetime.second > HOUR_HANDLE_START + HOUR_HANDLE_DELAY
-            and current_datetime.second < MINUTE_HANDLE_START
+            and current_datetime.second > HOUR_HANDLE_START + HOUR_HANDLE_DELAY + 1
+            and current_datetime.second < MINUTE_HANDLE_START - 1 
         ):
             print(f"Current watch time is: {last_watch_time.strftime('%H:%M:%S')}")
             print(f"Current time is: {current_datetime.strftime('%H:%M:%S')}")
@@ -300,6 +314,7 @@ def watch(
         if int(current_datetime.strftime("%S")) == HOUR_HANDLE_START:
             hour_handle_process = multiprocessing.Process(target=move_hour_handle)
             hour_handle_process.start()
-            log_last_watch_time(date_time=current_datetime.replace(second=0))
+            log_last_watch_time(date_time=last_watch_time.replace(second=0)
+            + datetime.timedelta(minutes=1))
 
         wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)

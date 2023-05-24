@@ -55,7 +55,7 @@ def show_initial_message() -> None:
     """
     write(0, 0, "Hvaljen Isus i")
     write(0, 1, "Marija!")
-    time.sleep(10)
+    time.sleep(40)
     clear()
 
 
