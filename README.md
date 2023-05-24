@@ -38,7 +38,7 @@ True 23/05/23 15:25:10
 ```
 in this way it is tracked which (ringing) function is activated and when.
 
-Also you can enable executing `main.py` file on Raspberry Pi startup, you can see how to do that [here](https://people.utm.my/shaharil/run-programs-on-your-raspberry-pi-at-startup/).
+Also you can make service and enable it to execute `main.py` file after network connection on Raspberry Pi startup. You can see how to do that [here](https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/).
 
 ## Overview:
 
