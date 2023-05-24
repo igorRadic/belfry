@@ -273,6 +273,7 @@ def watch(
         if (
             time_delta > 0
             and current_datetime.second > HOUR_HANDLE_START + HOUR_HANDLE_DELAY
+            and current_datetime.second < MINUTE_HANDLE_START
         ):
             print(f"Current watch time is: {last_watch_time.strftime('%H:%M:%S')}")
             print(f"Current time is: {current_datetime.strftime('%H:%M:%S')}")
