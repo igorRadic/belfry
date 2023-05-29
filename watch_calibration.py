@@ -1,3 +1,9 @@
+"""Watch calibration module.
+
+This module is used to move watch handles 60 times, it is used
+to see if watch handles actually moved for 60 minutes.
+"""
+
 import multiprocessing
 
 from watch import move_hour_handle, move_minute_handle

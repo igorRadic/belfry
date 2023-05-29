@@ -59,6 +59,8 @@ def show_initial_message() -> None:
     clear()
     write(0, 0, "Postavljanje")
     write(0, 1, "vremena!")
+    # Long delay is used to give the system time to initially
+    # set the correct time using the internet connection
     time.sleep(110)
     clear()
 
@@ -70,6 +72,9 @@ def main() -> None:
     # Queues for communication between processes.
     message_queue_for_display = multiprocessing.Queue()
     states_queue_for_bells = multiprocessing.Queue()
+    message_queue_for_buttons = multiprocessing.Queue()
+    message_queue_for_watch = multiprocessing.Queue()
+    message_queue_for_manual_watch_setup = multiprocessing.Queue()
 
     # Queue for sending current datetime to display module.
     current_datetime_for_display = multiprocessing.Queue()
@@ -79,12 +84,6 @@ def main() -> None:
 
     # Queue for sending current datetime to buttons module.
     current_datetime_for_buttons = multiprocessing.Queue()
-
-    # Manual watch setup queues.
-    message_queue_for_buttons = multiprocessing.Queue()
-    message_queue_for_watch = multiprocessing.Queue()
-
-    message_queue_for_manual_watch_setup = multiprocessing.Queue()
 
     # Starting display process.
     multiprocessing.Process(
@@ -125,6 +124,7 @@ def main() -> None:
         ),
     ).start()
 
+    # Start manual watch setip process.
     multiprocessing.Process(
         target=manual_watch_setup,
         args=(
