@@ -128,6 +128,21 @@ def handles_synchronized() -> bool:
         return True
 
 
+def minute_handle_last_moved() -> bool:
+    """
+    This function checks if minute handle last moved.
+    """
+    try:
+        with open("handles_movement_log.txt", "r") as txt_file:
+            last_movement = txt_file.readline()
+        if last_movement == "minute_handle":
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return True
+
+
 def watch_setup(
     minutes: int,
     last_watch_datetime: datetime.datetime,
@@ -218,6 +233,13 @@ def watch(
     watch_setup_queue = multiprocessing.Queue()
     # Flag which indicates that app is on startup.
     app_on_startup = True
+    # Flag which indicates that minute handle has moved in previous iteration.
+    minute_handle_moved = True
+    """
+    When watch setup ends after minute handle movement and before 
+    hour handle movement, hour handle moves but minute handle did not move,
+    this flag is used to track this.
+    """
 
     while True:
         # Get current perf counter state, date and time.
@@ -270,7 +292,7 @@ def watch(
 
         # Convert time difference to minutes.
         time_delta = int(time_delta.total_seconds() / 60)
-        
+
         if app_on_startup and time_delta > 0:
             watch_is_setting = True
             multiprocessing.Process(
@@ -287,7 +309,7 @@ def watch(
         if (
             time_delta > 0
             and current_datetime.second > HOUR_HANDLE_START + HOUR_HANDLE_DELAY + 1
-            and current_datetime.second < MINUTE_HANDLE_START - 1 
+            and current_datetime.second < MINUTE_HANDLE_START - 1
         ):
             print(f"Current watch time is: {last_watch_time.strftime('%H:%M:%S')}")
             print(f"Current time is: {current_datetime.strftime('%H:%M:%S')}")
@@ -307,14 +329,34 @@ def watch(
 
         # Check if is it time for minute handle moving, if it is, move minute handle.
         if int(current_datetime.strftime("%S")) == MINUTE_HANDLE_START:
-            seconds_handle_process = multiprocessing.Process(target=move_minute_handle)
-            seconds_handle_process.start()
+            minute_handle_process = multiprocessing.Process(target=move_minute_handle)
+            minute_handle_process.start()
 
         # Check if is it time for hour handle moving, if it is, move hour handle.
         if int(current_datetime.strftime("%S")) == HOUR_HANDLE_START:
+            if not minute_handle_last_moved():
+                minute_handle_moved = False
             hour_handle_process = multiprocessing.Process(target=move_hour_handle)
             hour_handle_process.start()
-            log_last_watch_time(date_time=last_watch_time.replace(second=0)
-            + datetime.timedelta(minutes=1))
+            log_last_watch_time(
+                date_time=last_watch_time.replace(second=0)
+                + datetime.timedelta(minutes=1)
+            )
+
+        if (
+            not minute_handle_moved
+            and int(current_datetime.strftime("%S"))
+            > HOUR_HANDLE_START + HOUR_HANDLE_DELAY + 1
+            and int(current_datetime.strftime("%S"))
+            < MINUTE_HANDLE_START - MINUTE_HANDLE_DELAY - 1
+        ):
+            # If hour handle moved but minute handle did not move, move minute handle
+            # after the hour handle has has moved.
+            minute_handle_process = multiprocessing.Process(target=move_minute_handle)
+            minute_handle_process.start()
+            minute_handle_moved = True
+            # Override minute handle move log with hour handle move log so the algorithm
+            # won't assume that handles are not synchronized.
+            log_hour_handle_move()
 
         wait_until_next_second(counter_from_which_it_is_waiting=loop_start_time)
