@@ -32,8 +32,8 @@ for pin in [MINUTE_HANDLE, HOUR_HANDLE]:
 
 # Declare how long to move each handle
 # and when to start moving handles.
-MINUTE_HANDLE_DELAY = 3.1  # [s]
-HOUR_HANDLE_DELAY = 3.1  # [s]
+MINUTE_HANDLE_DELAY = 2.99  # [s]
+HOUR_HANDLE_DELAY = 2.99  # [s]
 
 MINUTE_HANDLE_START = 57  # [s]
 HOUR_HANDLE_START = 2  # [s]
