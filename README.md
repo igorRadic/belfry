@@ -34,11 +34,23 @@ and finnaly add next lines in `function_buttons.txt` file:
 ```
 True 23/05/23 15:25:11 
 True 23/05/23 15:25:10 
-
 ```
 in this way it is tracked which (ringing) function is activated and when.
 
 Also you can make service and enable it to execute `main.py` file after network connection on Raspberry Pi startup. You can see how to do that [here](https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/).
+
+I made `belfry.service` as service which executes `belfry.sh` which then executes `main.py`. 
+You can locate these two files as it is specified inside them and start `belfry.service` with:
+
+```
+sudo systemctl start belfry.service
+```
+
+also you can enable starting this service on startup with:
+
+```
+sudo systemctl enable belfry.service
+```
 
 ## Overview:
 

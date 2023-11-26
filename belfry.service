@@ -1,0 +1,11 @@
+# location: /lib/systemd/system/belfry.service
+
+[Unit]
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/bin/bash /usr/bin/belfry.sh
+
+[Install]
+WantedBy=default.target
